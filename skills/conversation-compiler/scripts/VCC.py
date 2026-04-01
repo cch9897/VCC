@@ -1058,6 +1058,8 @@ def main():
     p.add_argument("-t", "--truncate", nargs="?", type=int, const=128, default=128, metavar="N")
     p.add_argument("-tu", "--truncate-user", nargs="?", type=int, const=256, default=256, metavar="N")
     p.add_argument("--grep", metavar="PATTERN")
+    p.add_argument("--auto", action="store_true",
+                   help="Auto-detect format (Claude Code vs OpenClaw)")
     a = p.parse_args()
     try:
         a.grep = re.compile(a.grep) if a.grep else None
@@ -1065,8 +1067,22 @@ def main():
         p.error(f"invalid regex for --grep: {e}")
     all_results = []
     for f in _expand_inputs(a.input):
-        res = compile_pass(f, a.output_dir, a.truncate, a.truncate_user,
-                      a.grep, quiet=bool(a.grep))
+        if a.auto:
+            try:
+                from VCC_openclaw import detect_format, oc_compile_pass
+                fmt = detect_format(f)
+                if fmt == "openclaw":
+                    res = oc_compile_pass(f, a.output_dir, a.truncate,
+                                         a.truncate_user, a.grep, quiet=bool(a.grep))
+                else:
+                    res = compile_pass(f, a.output_dir, a.truncate, a.truncate_user,
+                                  a.grep, quiet=bool(a.grep))
+            except ImportError:
+                res = compile_pass(f, a.output_dir, a.truncate, a.truncate_user,
+                              a.grep, quiet=bool(a.grep))
+        else:
+            res = compile_pass(f, a.output_dir, a.truncate, a.truncate_user,
+                          a.grep, quiet=bool(a.grep))
         all_results.extend(res)
     if a.grep:
         grep_search(all_results, a.grep)
